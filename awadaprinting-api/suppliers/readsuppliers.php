@@ -1,17 +1,16 @@
 <?php
 require_once __DIR__ . '/../config/helpers.php';
 
-// Wrappers to keep compatibility while using generic helpers
-function fetchCustomers($search = '', $sortColumn = 'id', $sortDir = 'ASC', $limit = 20, $page = 1): array
+function fetchSuppliers($search = '', $sortColumn = 'id', $sortDir = 'ASC', $limit = 20, $page = 1): array
 {
     $allowedSort = ['id', 'name'];
     [$sortColumn, $sortDir] = normalize_sort($sortColumn, $sortDir, $allowedSort);
-    return fetch_entities('customers', 'name', $search, $allowedSort, $sortColumn, $sortDir, (int)$limit, (int)$page, 'is_active = TRUE');
+    return fetch_entities('suppliers', 'name', $search, $allowedSort, $sortColumn, $sortDir, (int)$limit, (int)$page, 'is_active = TRUE');
 }
 
-function countCustomers($search = ''): int
+function countSuppliers($search = ''): int
 {
-    return count_entities('customers', 'name', $search, 'is_active = TRUE');
+    return count_entities('suppliers', 'name', $search, 'is_active = TRUE');
 }
 
 // API endpoint
@@ -22,11 +21,11 @@ if (isset($_GET['api'])) {
     $sortDir = (string) param($_GET, 'sortDir', 'ASC');
     $search = (string) param($_GET, 'search', '');
 
-    $customers = fetchCustomers($search, $sortColumn, $sortDir, $limit, $page);
-    $total = countCustomers($search);
+    $suppliers = fetchSuppliers($search, $sortColumn, $sortDir, $limit, $page);
+    $total = countSuppliers($search);
 
     json_response([
-        'data' => $customers,
+        'data' => $suppliers,
         'total' => $total,
         'page' => $page,
         'limit' => $limit,

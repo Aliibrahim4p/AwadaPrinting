@@ -3,7 +3,7 @@ ob_start();
 
 require_once '../config/db.php';
 require_once '../config/redis.php';
-require_once 'readcustomers.php';
+require_once 'readsuppliers.php';
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -47,8 +47,8 @@ if (!empty($contact_info) && !preg_match('/^\d+$/', $contact_info)) {
 }
 
 try {
-    // Insert new customer (PostgreSQL) and return its ID reliably
-    $stmt = $pdo->prepare("INSERT INTO customers (name, contact_info, notes, is_active) VALUES (:name, :contact_info, :notes, TRUE) RETURNING id");
+    // Insert new supplier (PostgreSQL) and return its ID reliably
+    $stmt = $pdo->prepare("INSERT INTO suppliers (name, contact_info, notes, is_active) VALUES (:name, :contact_info, :notes, TRUE) RETURNING id");
     $stmt->execute([
         ':name' => $name,
         ':contact_info' => $contact_info ?: null,
@@ -57,23 +57,23 @@ try {
     $newId = (int) $stmt->fetchColumn();
 
     // Clear related cache keys in Redis so subsequent reads are fresh
-    if (function_exists('clearCustomersCache')) {
-        clearCustomersCache($redis);
+    if (function_exists('clearSuppliersCache')) {
+        clearSuppliersCache($redis);
     }
 
     // Fetch updated data for the response
     $page = 1;
     $limit = 20;
-    // Return newest first so the just-added customer is visible on page 1
-    $customers = fetchCustomers('', 'id', 'DESC', $limit, $page);
-    $total = countCustomers('');
+    // Return newest first so the just-added supplier is visible on page 1
+    $suppliers = fetchSuppliers('', 'id', 'DESC', $limit, $page);
+    $total = countSuppliers('');
 
     ob_end_clean();
     echo json_encode([
         'success' => true,
-        'message' => 'Customer added successfully.',
-        'customer_id' => $newId,
-        'data' => $customers,
+        'message' => 'Suppliers added successfully.',
+        'supplier_id' => $newId,
+        'data' => $suppliers,
         'total' => $total,
         'page' => $page,
         'limit' => $limit,

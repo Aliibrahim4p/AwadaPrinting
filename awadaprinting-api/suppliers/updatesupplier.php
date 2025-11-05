@@ -4,23 +4,23 @@ require_once '../config/redis.php';
 
 header('Content-Type: application/json');
 
-// Get customer ID from query string
+// Get supplier ID from query string
 $id = $_GET['id'] ?? null;
 
 if (!$id) {
     http_response_code(400);
-    echo json_encode(['error' => 'Missing customer ID.']);
+    echo json_encode(['error' => 'Missing supplier ID.']);
     exit;
 }
 
-// Fetch existing customer
-$stmt = $pdo->prepare("SELECT * FROM customers WHERE id = :id AND is_active = TRUE");
+// Fetch existing supplier
+$stmt = $pdo->prepare("SELECT * FROM suppliers WHERE id = :id AND is_active = TRUE");
 $stmt->execute([':id' => $id]);
-$customer = $stmt->fetch(PDO::FETCH_ASSOC);
+$supplier = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$customer) {
+if (!$supplier) {
     http_response_code(404);
-    echo json_encode(['error' => 'Customer not found.']);
+    echo json_encode(['error' => 'Supplier not found.']);
     exit;
 }
 
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT
     }
 
     $updateStmt = $pdo->prepare("
-        UPDATE customers 
+        UPDATE suppliers 
         SET name = :name, 
             contact_info = :contact_info, 
             notes = :notes,
@@ -53,23 +53,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT
         ':id' => $id
     ]);
 
-    // Clear customers cache so reads are fresh
-    if (function_exists('clearCustomersCache')) {
-        clearCustomersCache($redis);
+    // Clear suppliers cache so reads are fresh
+    if (function_exists('clearSuppliersCache')) {
+        clearSuppliersCache($redis);
     }
 
     // Fetch updated record
-    $stmt = $pdo->prepare("SELECT * FROM customers WHERE id = :id");
+    $stmt = $pdo->prepare("SELECT * FROM suppliers WHERE id = :id");
     $stmt->execute([':id' => $id]);
-    $customer = $stmt->fetch(PDO::FETCH_ASSOC);
+    $supplier = $stmt->fetch(PDO::FETCH_ASSOC);
 
     echo json_encode([
-        'message' => 'Customer updated successfully.',
-        'customer' => $customer
+        'message' => 'Supplier updated successfully.',
+        'supplier' => $supplier
     ]);
     exit;
 }
 
-// GET request → return the customer
-echo json_encode(['customer' => $customer]);
+// GET request → return the supplier
+echo json_encode(['supplier' => $supplier]);
 exit;

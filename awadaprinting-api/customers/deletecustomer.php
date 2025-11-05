@@ -1,5 +1,6 @@
 <?php
 require_once '../config/db.php'; // Your PDO connection
+require_once '../config/redis.php';
 
 header('Content-Type: application/json');
 
@@ -19,5 +20,9 @@ if ($stmt->rowCount() === 0) {
     http_response_code(404);
     echo json_encode(['error' => 'Customer not found or already inactive.']);
 } else {
+    // Clear customers cache so reads reflect the deletion
+    if (function_exists('clearCustomersCache')) {
+        clearCustomersCache($redis);
+    }
     echo json_encode(['message' => 'Customer soft-deleted successfully.']);
 }
