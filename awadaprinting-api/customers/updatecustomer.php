@@ -1,75 +1,63 @@
 <?php
-require_once '../config/db.php'; // Your PDO connection
-require_once '../config/redis.php';
+require_once '../config/helpers.php';
 
 header('Content-Type: application/json');
 
-// Get customer ID from query string
-$id = $_GET['id'] ?? null;
-
-if (!$id) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Missing customer ID.']);
+$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+if ($id <= 0) {
+    json_response(['error' => 'Missing customer ID.'], 400);
     exit;
 }
 
-// Fetch existing customer
-$stmt = $pdo->prepare("SELECT * FROM customers WHERE id = :id AND is_active = TRUE");
-$stmt->execute([':id' => $id]);
-$customer = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$customer) {
-    http_response_code(404);
-    echo json_encode(['error' => 'Customer not found.']);
-    exit;
-}
-
-// Handle update (POST or PUT)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'PUT') {
-    $input = json_decode(file_get_contents('php://input'), true);
-
-    $name = trim($input['name'] ?? '');
-    $contact_info = trim($input['contact_info'] ?? '');
-    $notes = trim($input['notes'] ?? '');
-
-    if ($name === '') {
-        http_response_code(422);
-        echo json_encode(['error' => 'Name is required.']);
+// Support GET to fetch current entity (used by forms)
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+    $customer = fetch_entity_by_id('customers', $id, true);
+    if (!$customer) {
+        json_response(['error' => 'Customer not found.'], 404);
         exit;
     }
-
-    $updateStmt = $pdo->prepare("
-        UPDATE customers 
-        SET name = :name, 
-            contact_info = :contact_info, 
-            notes = :notes,
-            updated_at = NOW()
-        WHERE id = :id
-    ");
-    $updateStmt->execute([
-        ':name' => $name,
-        ':contact_info' => $contact_info,
-        ':notes' => $notes,
-        ':id' => $id
-    ]);
-
-    // Clear customers cache so reads are fresh
-    if (function_exists('clearCustomersCache')) {
-        clearCustomersCache($redis);
-    }
-
-    // Fetch updated record
-    $stmt = $pdo->prepare("SELECT * FROM customers WHERE id = :id");
-    $stmt->execute([':id' => $id]);
-    $customer = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    echo json_encode([
-        'message' => 'Customer updated successfully.',
-        'customer' => $customer
-    ]);
+    json_response(['customer' => $customer]);
     exit;
 }
 
-// GET request → return the customer
-echo json_encode(['customer' => $customer]);
-exit;
+// Only allow POST/PUT for updates
+require_method(['POST', 'PUT']);
+
+$existing = fetch_entity_by_id('customers', $id, true);
+if (!$existing) {
+    json_response(['error' => 'Customer not found.'], 404);
+    exit;
+}
+
+$input = parse_json_body();
+
+// Run update using generic helper
+try {
+    $updated = update_entity(
+        'customers',
+        $id,
+        $input,
+        // Allowed fields
+        ['name', 'contact_info', 'notes'],
+        // Required non-empty fields
+        ['name'],
+        // Validators
+        [
+            'contact_info' => function ($v) {
+                if ($v === null || $v === '') return null; // allow null/empty
+                return preg_match('/^\d+$/', (string)$v) ? null : 'Contact info must contain only numbers.';
+            }
+        ]
+    );
+
+    json_response([
+        'message' => 'Customer updated successfully.',
+        'customer' => $updated
+    ]);
+} catch (InvalidArgumentException $e) {
+    // Validation or bad input
+    $code = (stripos($e->getMessage(), 'required') !== false) ? 422 : 400;
+    json_response(['error' => $e->getMessage()], $code);
+} catch (Throwable $e) {
+    json_response(['error' => 'Internal Server Error'], 500);
+}

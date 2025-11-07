@@ -1,28 +1,21 @@
 <?php
-require_once '../config/db.php'; // Your PDO connection
-require_once '../config/redis.php';
+require_once '../config/helpers.php';
 
 header('Content-Type: application/json');
 
-$id = $_GET['id'] ?? null;
-
-if (!$id) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Missing customer ID.']);
+$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+if ($id <= 0) {
+    json_response(['error' => 'Missing customer ID.'], 400);
     exit;
 }
 
-// Soft delete: mark as inactive
-$stmt = $pdo->prepare("UPDATE customers SET is_active = FALSE, updated_at = NOW() WHERE id = :id");
-$stmt->execute([':id' => $id]);
-
-if ($stmt->rowCount() === 0) {
-    http_response_code(404);
-    echo json_encode(['error' => 'Customer not found or already inactive.']);
-} else {
-    // Clear customers cache so reads reflect the deletion
-    if (function_exists('clearCustomersCache')) {
-        clearCustomersCache($redis);
+try {
+    $ok = soft_delete_entity('customers', $id);
+    if (!$ok) {
+        json_response(['error' => 'Customer not found or already inactive.'], 404);
+        exit;
     }
-    echo json_encode(['message' => 'Customer soft-deleted successfully.']);
+    json_response(['message' => 'Customer soft-deleted successfully.']);
+} catch (Throwable $e) {
+    json_response(['error' => 'Internal Server Error'], 500);
 }

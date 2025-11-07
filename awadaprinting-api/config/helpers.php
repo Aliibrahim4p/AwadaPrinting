@@ -75,6 +75,35 @@ function cache_set_json(string $key, $value, int $ttl = 300): void
 }
 
 /**
+ * Parse JSON body; fallback to form POST; returns array.
+ */
+function parse_json_body(): array
+{
+    $raw = file_get_contents('php://input');
+    $data = json_decode($raw, true);
+    if (json_last_error() === JSON_ERROR_NONE && is_array($data)) {
+        return $data;
+    }
+    return $_POST ?? [];
+}
+
+/** Require method(s), emit 405 JSON if mismatch. */
+function require_method(array $allowed): void
+{
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    if (!in_array($method, $allowed, true)) {
+        json_response(['error' => 'Method Not Allowed', 'allowed' => $allowed], 405);
+        exit;
+    }
+}
+
+/** Standard JSON error helper. */
+function json_error(string $message, int $code = 400): void
+{
+    json_response(['error' => $message], $code);
+}
+
+/**
  * Generic entity list fetcher with optional LIKE search on a single column and active flag.
  */
 function fetch_entities(string $table, string $searchColumn, string $search = '', array $allowedSortColumns = ['id'], string $sortColumn = 'id', string $sortDir = 'ASC', int $limit = 20, int $page = 1, string $extraWhere = 'is_active = TRUE'): array
@@ -151,6 +180,132 @@ function count_entities(string $table, string $searchColumn, string $search = ''
 
     cache_set_json($cacheKey, $count);
     return $count;
+}
+
+/** Fetch single entity by ID (optionally only active). */
+function fetch_entity_by_id(string $table, int $id, bool $onlyActive = true): ?array
+{
+    global $pdo;
+
+    $allowedTables = ['customers', 'suppliers'];
+    if (!in_array($table, $allowedTables, true)) {
+        throw new InvalidArgumentException('Invalid table requested');
+    }
+
+    $where = 'id = :id';
+    if ($onlyActive) {
+        $where .= ' AND is_active = TRUE';
+    }
+
+    $stmt = $pdo->prepare("SELECT * FROM {$table} WHERE {$where} LIMIT 1");
+    $stmt->bindValue(':id', (int)$id, PDO::PARAM_INT);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+    return $row ?: null;
+}
+
+/** Invalidate list/count caches for a table. */
+function invalidate_cache_for_table(string $table): void
+{
+    global $redis;
+    if (!isset($redis)) return;
+    if (function_exists('clearCustomersCache') && $table === 'customers') {
+        clearCustomersCache($redis);
+        return;
+    }
+    if (function_exists('clearSuppliersCache') && $table === 'suppliers') {
+        clearSuppliersCache($redis);
+        return;
+    }
+}
+
+/**
+ * Generic update helper for a single row.
+ * - $allowedFields: whitelist of updatable columns.
+ * - $requiredNonEmpty: fields that must be non-empty strings if present or always required if missing.
+ * - $validators: associative array field => callable($value): string|null returns error string or null.
+ */
+function update_entity(string $table, int $id, array $input, array $allowedFields, array $requiredNonEmpty = [], array $validators = []): array
+{
+    global $pdo;
+
+    $allowedTables = ['customers', 'suppliers'];
+    if (!in_array($table, $allowedTables, true)) {
+        throw new InvalidArgumentException('Invalid table requested');
+    }
+
+    // Filter to allowed fields
+    $data = [];
+    foreach ($allowedFields as $f) {
+        if (array_key_exists($f, $input)) {
+            $data[$f] = $input[$f];
+        }
+    }
+
+    if (empty($data)) {
+        throw new InvalidArgumentException('No valid fields to update.');
+    }
+
+    // Required non-empty validation
+    foreach ($requiredNonEmpty as $f) {
+        $val = $data[$f] ?? $input[$f] ?? null;
+        if ($val === null || (is_string($val) && trim($val) === '')) {
+            throw new InvalidArgumentException(ucfirst($f) . ' is required.');
+        }
+    }
+
+    // Custom validators
+    foreach ($validators as $field => $callable) {
+        if (array_key_exists($field, $data)) {
+            $msg = $callable($data[$field]);
+            if (is_string($msg) && $msg !== '') {
+                throw new InvalidArgumentException($msg);
+            }
+        }
+    }
+
+    // Build dynamic SET clause
+    $sets = [];
+    $params = [':id' => $id];
+    foreach ($data as $col => $val) {
+        $sets[] = "$col = :$col";
+        $params[":$col"] = $val === '' ? null : $val;
+    }
+    $sets[] = 'updated_at = NOW()';
+
+    $sql = 'UPDATE ' . $table . ' SET ' . implode(', ', $sets) . ' WHERE id = :id';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+
+    // Invalidate caches
+    invalidate_cache_for_table($table);
+
+    $updated = fetch_entity_by_id($table, $id, false);
+    if (!$updated) {
+        throw new RuntimeException('Update failed or record not found.');
+    }
+    return $updated;
+}
+
+/** Soft delete helper (sets is_active = FALSE). */
+function soft_delete_entity(string $table, int $id): bool
+{
+    global $pdo;
+
+    $allowedTables = ['customers', 'suppliers'];
+    if (!in_array($table, $allowedTables, true)) {
+        throw new InvalidArgumentException('Invalid table requested');
+    }
+
+    $stmt = $pdo->prepare('UPDATE ' . $table . ' SET is_active = FALSE, updated_at = NOW() WHERE id = :id AND is_active = TRUE');
+    $stmt->execute([':id' => $id]);
+    $ok = $stmt->rowCount() > 0;
+
+    if ($ok) {
+        invalidate_cache_for_table($table);
+    }
+    return $ok;
 }
 
 /**
