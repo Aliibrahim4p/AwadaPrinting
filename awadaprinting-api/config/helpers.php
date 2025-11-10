@@ -8,7 +8,8 @@ require_once __DIR__ . '/db.php';
 /**
  * Safely get a value from an array (e.g., $_GET) with default.
  */
-function param(array $src, string $key, $default = null) {
+function param(array $src, string $key, $default = null)
+{
     return isset($src[$key]) ? $src[$key] : $default;
 }
 
@@ -19,8 +20,10 @@ function normalize_pagination($page, $limit, $defaultLimit = 20): array
 {
     $p = (int) ($page ?? 1);
     $l = (int) ($limit ?? $defaultLimit);
-    if ($p < 1) $p = 1;
-    if ($l < 1) $l = $defaultLimit;
+    if ($p < 1)
+        $p = 1;
+    if ($l < 1)
+        $l = $defaultLimit;
     return [$p, $l, ($p - 1) * $l];
 }
 
@@ -40,9 +43,11 @@ function normalize_sort(string $requestedColumn = 'id', string $requestedDir = '
 function build_cache_key(string $namespace, array $parts): string
 {
     $encoded = array_map(function ($p) {
-        if (is_bool($p)) return $p ? '1' : '0';
-        if (is_array($p)) return md5(json_encode($p));
-        return strtolower(trim((string)$p));
+        if (is_bool($p))
+            return $p ? '1' : '0';
+        if (is_array($p))
+            return md5(json_encode($p));
+        return strtolower(trim((string) $p));
     }, $parts);
     return $namespace . ':' . implode(':', $encoded);
 }
@@ -112,8 +117,10 @@ function fetch_entities(string $table, string $searchColumn, string $search = ''
 
     // Normalize inputs
     [$sortColumn, $sortDir] = normalize_sort($sortColumn, $sortDir, $allowedSortColumns);
-    if ($page < 1) $page = 1;
-    if ($limit < 1) $limit = 20;
+    if ($page < 1)
+        $page = 1;
+    if ($limit < 1)
+        $limit = 20;
     $offset = ($page - 1) * $limit;
 
     // Build cache key
@@ -138,9 +145,10 @@ function fetch_entities(string $table, string $searchColumn, string $search = ''
     $sql .= " ORDER BY {$sortColumn} {$sortDir} LIMIT :limit OFFSET :offset";
 
     $stmt = $pdo->prepare($sql);
-    foreach ($params as $k => $v) $stmt->bindValue($k, $v);
-    $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+    foreach ($params as $k => $v)
+        $stmt->bindValue($k, $v);
+    $stmt->bindValue(':limit', (int) $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', (int) $offset, PDO::PARAM_INT);
     $stmt->execute();
     $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -158,7 +166,8 @@ function count_entities(string $table, string $searchColumn, string $search = ''
     // Build cache key
     $cacheKey = build_cache_key($table . ':count', [$search]);
     $cached = cache_get_json($cacheKey);
-    if ($cached !== null) return (int)$cached;
+    if ($cached !== null)
+        return (int) $cached;
 
     // Whitelist table
     $allowedTables = ['customers', 'suppliers'];
@@ -174,9 +183,10 @@ function count_entities(string $table, string $searchColumn, string $search = ''
     }
 
     $stmt = $pdo->prepare($sql);
-    foreach ($params as $k => $v) $stmt->bindValue($k, $v);
+    foreach ($params as $k => $v)
+        $stmt->bindValue($k, $v);
     $stmt->execute();
-    $count = (int)$stmt->fetchColumn();
+    $count = (int) $stmt->fetchColumn();
 
     cache_set_json($cacheKey, $count);
     return $count;
@@ -198,7 +208,7 @@ function fetch_entity_by_id(string $table, int $id, bool $onlyActive = true): ?a
     }
 
     $stmt = $pdo->prepare("SELECT * FROM {$table} WHERE {$where} LIMIT 1");
-    $stmt->bindValue(':id', (int)$id, PDO::PARAM_INT);
+    $stmt->bindValue(':id', (int) $id, PDO::PARAM_INT);
     $stmt->execute();
     $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
@@ -209,7 +219,8 @@ function fetch_entity_by_id(string $table, int $id, bool $onlyActive = true): ?a
 function invalidate_cache_for_table(string $table): void
 {
     global $redis;
-    if (!isset($redis)) return;
+    if (!isset($redis))
+        return;
     if (function_exists('clearCustomersCache') && $table === 'customers') {
         clearCustomersCache($redis);
         return;
