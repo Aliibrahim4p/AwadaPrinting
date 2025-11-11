@@ -44,7 +44,7 @@ try {
     }
 
     // Insert purchase with total_cost
-    $stmt = $pdo->prepare("INSERT INTO purchases (supplier_id, purchase_date, notes, total_cost) VALUES (?, NOW(), ?, ?) RETURNING id");
+    $stmt = $pdo->prepare("INSERT INTO purchases (supplier_id,  notes, total_cost) VALUES (?,  ?, ?) RETURNING id");
     $stmt->execute([$supplier_id, $note, $total_cost]);
     $purchase_id = $stmt->fetchColumn();
 
