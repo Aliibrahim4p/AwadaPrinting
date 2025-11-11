@@ -149,6 +149,8 @@ function fetch_entities(
     // Date filter
     if ($dateColumn) {
         if ($dateFrom && $dateTo) {
+            $dateTo .= ' 23:59:59';
+
             $sql .= " AND {$dateColumn} BETWEEN :dateFrom AND :dateTo";
             $params[':dateFrom'] = $dateFrom;
             $params[':dateTo'] = $dateTo;
