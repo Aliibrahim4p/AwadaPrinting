@@ -57,6 +57,7 @@
 
         <a href="customers/customers.php">Customers</a>
         <a href="suppliers/suppliers.php">Suppliers</a>
+        <a href="purchases/purchases.php">Purchases</a>
         <!-- Add more options later easily -->
     </div>
 </body>
