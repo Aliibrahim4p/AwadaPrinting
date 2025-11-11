@@ -151,7 +151,8 @@
             <td>${p.total_cost || 0}</td>
             <td>${p.purchase_date || '-'}</td>
             <td>
-                <button onclick="editPurchase(${p.id})">Edit</button>
+                <button onclick="viewPurchase(${p.id})">View</button>
+                <button onclick="updatePurchase(${p.id})">Update</button>
                 <button onclick="deletePurchase(${p.id})">Delete</button>
             </td>
         `;
@@ -179,8 +180,12 @@
             loadPurchases(1);
         }
 
-        function editPurchase(id) {
-            window.location.href = `editpurchase.php?id=${id}`;
+        function viewPurchase(id) {
+            window.location.href = `viewpurchasedemo.php?id=${id}`;
+        }
+
+        function updatePurchase(id) {
+            window.location.href = `updatepurchase.php?id=${id}`;
         }
 
         async function deletePurchase(id) {
