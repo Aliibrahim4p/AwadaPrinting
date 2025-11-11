@@ -29,3 +29,11 @@ function clearSuppliersCache(Client $redis): void
 {
     clearCacheByPattern($redis, 'suppliers:*');
 }
+function clearStockCache(Client $redis): void
+{
+    clearCacheByPattern($redis, 'stock:*');
+}
+function clearPurchasesCache(Client $redis): void
+{
+    clearCacheByPattern($redis, 'purchases:*');
+}
