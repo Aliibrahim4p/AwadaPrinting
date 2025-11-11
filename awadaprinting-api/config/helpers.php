@@ -127,7 +127,7 @@ function fetch_entities(
     [$sortColumn, $sortDir] = normalize_sort($sortColumn, $sortDir, $allowedSortColumns);
     $offset = max(0, ($page - 1) * $limit);
 
-    $cacheKey = build_cache_key($table . ':list', [$page, $limit, $sortColumn, $sortDir, $search, $dateFrom, $dateTo]);
+    $cacheKey = build_cache_key($table . ':list', [$page, $limit, $sortColumn, $extraWhere, $sortDir, $search, $dateFrom, $dateTo, $dateColumn]);
     if ($cached = cache_get_json($cacheKey))
         return $cached;
 
@@ -188,7 +188,7 @@ function count_entities(
     global $pdo;
     validate_table($table);
 
-    $cacheKey = build_cache_key($table . ':count', [$search, $dateFrom, $dateTo]);
+    $cacheKey = build_cache_key($table . ':count', [$search, $dateFrom, $dateTo, $extraWhere, $dateColumn]);
     if ($cached = cache_get_json($cacheKey))
         return (int) $cached;
 
@@ -208,6 +208,8 @@ function count_entities(
 
     if ($dateColumn) {
         if ($dateFrom && $dateTo) {
+            $dateTo .= ' 23:59:59';
+
             $sql .= " AND {$dateColumn} BETWEEN :dateFrom AND :dateTo";
             $params[':dateFrom'] = $dateFrom;
             $params[':dateTo'] = $dateTo;
