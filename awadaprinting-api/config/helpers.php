@@ -1,154 +1,172 @@
 <?php
-/**
- * Generic helper functions to DRY API endpoints.
- */
 require_once __DIR__ . '/redis.php';
 require_once __DIR__ . '/db.php';
 
-/**
- * Safely get a value from an array (e.g., $_GET) with default.
- */
+/** Global whitelist of allowed entity tables */
+$ALLOWED_ENTITY_TABLES = ['customers', 'suppliers', 'purchases', 'stock'];
+
+/** --- Helpers --- */
+
+/** Safely get value from array */
 function param(array $src, string $key, $default = null)
 {
-    return isset($src[$key]) ? $src[$key] : $default;
+    return $src[$key] ?? $default;
 }
 
-/**
- * Normalize page and limit to sensible integers.
- */
+/** Normalize page and limit */
 function normalize_pagination($page, $limit, $defaultLimit = 20): array
 {
-    $p = (int) ($page ?? 1);
-    $l = (int) ($limit ?? $defaultLimit);
-    if ($p < 1)
-        $p = 1;
-    if ($l < 1)
-        $l = $defaultLimit;
+    $p = max(1, (int) ($page ?? 1));
+    $l = max(1, (int) ($limit ?? $defaultLimit));
     return [$p, $l, ($p - 1) * $l];
 }
 
-/**
- * Validate the requested sort column and direction.
- */
-function normalize_sort(string $requestedColumn = 'id', string $requestedDir = 'ASC', array $allowedColumns = ['id']): array
+/** Normalize sort column and direction */
+function normalize_sort(string $col = 'id', string $dir = 'ASC', array $allowed = ['id']): array
 {
-    $col = in_array($requestedColumn, $allowedColumns, true) ? $requestedColumn : $allowedColumns[0];
-    $dir = strtoupper($requestedDir) === 'DESC' ? 'DESC' : 'ASC';
-    return [$col, $dir];
+    return [in_array($col, $allowed, true) ? $col : $allowed[0], strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC'];
 }
 
-/**
- * Build a cache key from pieces.
- */
+/** Validate table name */
+function validate_table(string $table): void
+{
+    global $ALLOWED_ENTITY_TABLES;
+    if (!in_array($table, $ALLOWED_ENTITY_TABLES, true))
+        throw new InvalidArgumentException("Invalid table: {$table}");
+}
+
+/** Build Redis cache key */
 function build_cache_key(string $namespace, array $parts): string
 {
-    $encoded = array_map(function ($p) {
-        if (is_bool($p))
-            return $p ? '1' : '0';
-        if (is_array($p))
-            return md5(json_encode($p));
-        return strtolower(trim((string) $p));
-    }, $parts);
+    $encoded = array_map(fn($p) => is_array($p) ? md5(json_encode($p)) : (is_bool($p) ? ($p ? '1' : '0') : strtolower(trim((string) $p))), $parts);
     return $namespace . ':' . implode(':', $encoded);
 }
 
-/**
- * Get JSON value from Redis cache, decoded to array; returns null if not found.
- */
+/** Redis get/set JSON */
 function cache_get_json(string $key)
 {
     global $redis;
     try {
-        $cached = $redis->get($key);
-        return $cached === null ? null : json_decode($cached, true);
-    } catch (\Exception $e) {
-        return null; // ignore cache failures
+        $c = $redis->get($key);
+        return $c === null ? null : json_decode($c, true);
+    } catch (\Exception) {
+        return null;
     }
 }
-
-/**
- * Set an array/object to Redis as JSON with TTL.
- */
 function cache_set_json(string $key, $value, int $ttl = 300): void
 {
     global $redis;
     try {
         $redis->setex($key, $ttl, json_encode($value));
-    } catch (\Exception $e) {
-        // ignore cache failures
+    } catch (\Exception) {
     }
 }
 
-/**
- * Parse JSON body; fallback to form POST; returns array.
- */
+/** Parse JSON body */
 function parse_json_body(): array
 {
-    $raw = file_get_contents('php://input');
-    $data = json_decode($raw, true);
-    if (json_last_error() === JSON_ERROR_NONE && is_array($data)) {
-        return $data;
-    }
-    return $_POST ?? [];
+    $data = json_decode(file_get_contents('php://input'), true);
+    return is_array($data) ? $data : ($_POST ?? []);
 }
 
-/** Require method(s), emit 405 JSON if mismatch. */
+/** Require HTTP method */
 function require_method(array $allowed): void
 {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-    if (!in_array($method, $allowed, true)) {
+    if (!in_array($method, $allowed, true))
         json_response(['error' => 'Method Not Allowed', 'allowed' => $allowed], 405);
-        exit;
+}
+
+/** JSON response */
+function json_response($payload, int $code = 200): void
+{
+    http_response_code($code);
+    header('Content-Type: application/json');
+    echo json_encode($payload);
+}
+
+/** JSON error shortcut */
+function json_error(string $msg, int $code = 400): void
+{
+    json_response(['error' => $msg], $code);
+}
+
+/** Invalidate Redis caches for table */
+function invalidate_cache_for_table(string $table): void
+{
+    global $redis;
+    if (!isset($redis))
+        return;
+    validate_table($table);
+    try {
+        foreach ([$table . ':list:*', $table . ':count:*'] as $pattern) {
+            foreach ($redis->scanIterator($pattern) as $key)
+                $redis->del($key);
+        }
+    } catch (\Exception) {
     }
 }
 
-/** Standard JSON error helper. */
-function json_error(string $message, int $code = 400): void
-{
-    json_response(['error' => $message], $code);
-}
-
-/**
- * Generic entity list fetcher with optional LIKE search on a single column and active flag.
- */
-function fetch_entities(string $table, string $searchColumn, string $search = '', array $allowedSortColumns = ['id'], string $sortColumn = 'id', string $sortDir = 'ASC', int $limit = 20, int $page = 1, string $extraWhere = 'is_active = TRUE'): array
-{
+/** Generic entity fetch with search, date, sort, and pagination */
+function fetch_entities(
+    string $table,
+    array|string $searchColumns = [],
+    string $search = '',
+    array $allowedSortColumns = ['id'],
+    string $sortColumn = 'id',
+    string $sortDir = 'ASC',
+    int $limit = 20,
+    int $page = 1,
+    string $extraWhere = 'is_active = TRUE',
+    ?string $dateColumn = null,
+    ?string $dateFrom = null,
+    ?string $dateTo = null
+): array {
     global $pdo;
-
-    // Normalize inputs
+    validate_table($table);
     [$sortColumn, $sortDir] = normalize_sort($sortColumn, $sortDir, $allowedSortColumns);
-    if ($page < 1)
-        $page = 1;
-    if ($limit < 1)
-        $limit = 20;
-    $offset = ($page - 1) * $limit;
+    $offset = max(0, ($page - 1) * $limit);
 
-    // Build cache key
-    $cacheKey = build_cache_key($table . ':list', [$page, $limit, $sortColumn, $sortDir, $search]);
-    if ($cached = cache_get_json($cacheKey)) {
+    $cacheKey = build_cache_key($table . ':list', [$page, $limit, $sortColumn, $sortDir, $search, $dateFrom, $dateTo]);
+    if ($cached = cache_get_json($cacheKey))
         return $cached;
-    }
-
-    // Whitelist table name to avoid injection
-    $allowedTables = ['customers', 'suppliers'];
-
-    if (!in_array($table, $allowedTables, true)) {
-        throw new InvalidArgumentException('Invalid table requested');
-    }
 
     $sql = "SELECT * FROM {$table} WHERE {$extraWhere}";
     $params = [];
-    if ($search !== '') {
-        $sql .= " AND {$searchColumn} ILIKE :search";
-        $params[':search'] = '%' . $search . '%';
-    }
-    $sql .= " ORDER BY {$sortColumn} {$sortDir} LIMIT :limit OFFSET :offset";
 
+    // Multi-column search
+    if ($search !== '' && !empty($searchColumns)) {
+        $searchColumns = (array) $searchColumns;
+        $clauses = [];
+        foreach ($searchColumns as $i => $col) {
+            $param = ":search{$i}";
+            $clauses[] = "{$col} ILIKE {$param}";
+            $params[$param] = "%{$search}%";
+        }
+        $sql .= " AND (" . implode(" OR ", $clauses) . ")";
+    }
+
+    // Date filter
+    if ($dateColumn) {
+        if ($dateFrom && $dateTo) {
+            $sql .= " AND {$dateColumn} BETWEEN :dateFrom AND :dateTo";
+            $params[':dateFrom'] = $dateFrom;
+            $params[':dateTo'] = $dateTo;
+        } elseif ($dateFrom) {
+            $sql .= " AND {$dateColumn} >= :dateFrom";
+            $params[':dateFrom'] = $dateFrom;
+        } elseif ($dateTo) {
+            $sql .= " AND {$dateColumn} <= :dateTo";
+            $params[':dateTo'] = $dateTo;
+        }
+    }
+
+    $sql .= " ORDER BY {$sortColumn} {$sortDir} LIMIT :limit OFFSET :offset";
     $stmt = $pdo->prepare($sql);
     foreach ($params as $k => $v)
         $stmt->bindValue($k, $v);
-    $stmt->bindValue(':limit', (int) $limit, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', (int) $offset, PDO::PARAM_INT);
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
     $stmt->execute();
     $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -156,30 +174,48 @@ function fetch_entities(string $table, string $searchColumn, string $search = ''
     return $data;
 }
 
-/**
- * Generic counter for entities.
- */
-function count_entities(string $table, string $searchColumn, string $search = '', string $extraWhere = 'is_active = TRUE'): int
-{
+function count_entities(
+    string $table,
+    array|string $searchColumns = [],
+    string $search = '',
+    string $extraWhere = 'is_active = TRUE',
+    ?string $dateColumn = null,
+    ?string $dateFrom = null,
+    ?string $dateTo = null
+): int {
     global $pdo;
+    validate_table($table);
 
-    // Build cache key
-    $cacheKey = build_cache_key($table . ':count', [$search]);
-    $cached = cache_get_json($cacheKey);
-    if ($cached !== null)
+    $cacheKey = build_cache_key($table . ':count', [$search, $dateFrom, $dateTo]);
+    if ($cached = cache_get_json($cacheKey))
         return (int) $cached;
-
-    // Whitelist table
-    $allowedTables = ['customers', 'suppliers'];
-    if (!in_array($table, $allowedTables, true)) {
-        throw new InvalidArgumentException('Invalid table requested');
-    }
 
     $sql = "SELECT COUNT(*) FROM {$table} WHERE {$extraWhere}";
     $params = [];
-    if ($search !== '') {
-        $sql .= " AND {$searchColumn} ILIKE :search";
-        $params[':search'] = '%' . $search . '%';
+
+    if ($search !== '' && !empty($searchColumns)) {
+        $searchColumns = (array) $searchColumns;
+        $clauses = [];
+        foreach ($searchColumns as $i => $col) {
+            $param = ":search{$i}";
+            $clauses[] = "{$col} ILIKE {$param}";
+            $params[$param] = "%{$search}%";
+        }
+        $sql .= " AND (" . implode(" OR ", $clauses) . ")";
+    }
+
+    if ($dateColumn) {
+        if ($dateFrom && $dateTo) {
+            $sql .= " AND {$dateColumn} BETWEEN :dateFrom AND :dateTo";
+            $params[':dateFrom'] = $dateFrom;
+            $params[':dateTo'] = $dateTo;
+        } elseif ($dateFrom) {
+            $sql .= " AND {$dateColumn} >= :dateFrom";
+            $params[':dateFrom'] = $dateFrom;
+        } elseif ($dateTo) {
+            $sql .= " AND {$dateColumn} <= :dateTo";
+            $params[':dateTo'] = $dateTo;
+        }
     }
 
     $stmt = $pdo->prepare($sql);
@@ -192,139 +228,62 @@ function count_entities(string $table, string $searchColumn, string $search = ''
     return $count;
 }
 
-/** Fetch single entity by ID (optionally only active). */
+/** Fetch single entity by ID */
 function fetch_entity_by_id(string $table, int $id, bool $onlyActive = true): ?array
 {
     global $pdo;
-
-    $allowedTables = ['customers', 'suppliers'];
-    if (!in_array($table, $allowedTables, true)) {
-        throw new InvalidArgumentException('Invalid table requested');
-    }
-
-    $where = 'id = :id';
-    if ($onlyActive) {
-        $where .= ' AND is_active = TRUE';
-    }
-
+    validate_table($table);
+    $where = 'id=:id' . ($onlyActive ? ' AND is_active=TRUE' : '');
     $stmt = $pdo->prepare("SELECT * FROM {$table} WHERE {$where} LIMIT 1");
-    $stmt->bindValue(':id', (int) $id, PDO::PARAM_INT);
+    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     $stmt->execute();
-    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-
-    return $row ?: null;
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
-/** Invalidate list/count caches for a table. */
-function invalidate_cache_for_table(string $table): void
-{
-    global $redis;
-    if (!isset($redis))
-        return;
-    if (function_exists('clearCustomersCache') && $table === 'customers') {
-        clearCustomersCache($redis);
-        return;
-    }
-    if (function_exists('clearSuppliersCache') && $table === 'suppliers') {
-        clearSuppliersCache($redis);
-        return;
-    }
-}
-
-/**
- * Generic update helper for a single row.
- * - $allowedFields: whitelist of updatable columns.
- * - $requiredNonEmpty: fields that must be non-empty strings if present or always required if missing.
- * - $validators: associative array field => callable($value): string|null returns error string or null.
- */
-function update_entity(string $table, int $id, array $input, array $allowedFields, array $requiredNonEmpty = [], array $validators = []): array
+/** Generic update entity */
+function update_entity(string $table, int $id, array $input, array $allowedFields, array $requiredNonEmpty = [], $validators = []): array
 {
     global $pdo;
-
-    $allowedTables = ['customers', 'suppliers'];
-    if (!in_array($table, $allowedTables, true)) {
-        throw new InvalidArgumentException('Invalid table requested');
-    }
-
-    // Filter to allowed fields
-    $data = [];
-    foreach ($allowedFields as $f) {
-        if (array_key_exists($f, $input)) {
-            $data[$f] = $input[$f];
-        }
-    }
-
-    if (empty($data)) {
+    validate_table($table);
+    $data = array_intersect_key($input, array_flip($allowedFields));
+    if (!$data)
         throw new InvalidArgumentException('No valid fields to update.');
-    }
-
-    // Required non-empty validation
     foreach ($requiredNonEmpty as $f) {
         $val = $data[$f] ?? $input[$f] ?? null;
-        if ($val === null || (is_string($val) && trim($val) === '')) {
+        if ($val === null || (is_string($val) && trim($val) === ''))
             throw new InvalidArgumentException(ucfirst($f) . ' is required.');
-        }
+    }
+    foreach ($validators as $f => $fn) {
+        if (isset($data[$f]) && ($msg = $fn($data[$f])) !== null)
+            throw new InvalidArgumentException($msg);
     }
 
-    // Custom validators
-    foreach ($validators as $field => $callable) {
-        if (array_key_exists($field, $data)) {
-            $msg = $callable($data[$field]);
-            if (is_string($msg) && $msg !== '') {
-                throw new InvalidArgumentException($msg);
-            }
-        }
-    }
-
-    // Build dynamic SET clause
     $sets = [];
     $params = [':id' => $id];
     foreach ($data as $col => $val) {
-        $sets[] = "$col = :$col";
+        $sets[] = "$col=:$col";
         $params[":$col"] = $val === '' ? null : $val;
     }
-    $sets[] = 'updated_at = NOW()';
-
-    $sql = 'UPDATE ' . $table . ' SET ' . implode(', ', $sets) . ' WHERE id = :id';
-    $stmt = $pdo->prepare($sql);
+    $sets[] = 'updated_at=NOW()';
+    $stmt = $pdo->prepare('UPDATE ' . $table . ' SET ' . implode(', ', $sets) . ' WHERE id=:id');
     $stmt->execute($params);
 
-    // Invalidate caches
     invalidate_cache_for_table($table);
-
     $updated = fetch_entity_by_id($table, $id, false);
-    if (!$updated) {
+    if (!$updated)
         throw new RuntimeException('Update failed or record not found.');
-    }
     return $updated;
 }
 
-/** Soft delete helper (sets is_active = FALSE). */
+/** Soft delete entity */
 function soft_delete_entity(string $table, int $id): bool
 {
     global $pdo;
-
-    $allowedTables = ['customers', 'suppliers'];
-    if (!in_array($table, $allowedTables, true)) {
-        throw new InvalidArgumentException('Invalid table requested');
-    }
-
-    $stmt = $pdo->prepare('UPDATE ' . $table . ' SET is_active = FALSE, updated_at = NOW() WHERE id = :id AND is_active = TRUE');
+    validate_table($table);
+    $stmt = $pdo->prepare('UPDATE ' . $table . ' SET is_active=FALSE, updated_at=NOW() WHERE id=:id AND is_active=TRUE');
     $stmt->execute([':id' => $id]);
     $ok = $stmt->rowCount() > 0;
-
-    if ($ok) {
+    if ($ok)
         invalidate_cache_for_table($table);
-    }
     return $ok;
-}
-
-/**
- * Standard JSON response emitter.
- */
-function json_response($payload, int $code = 200): void
-{
-    http_response_code($code);
-    header('Content-Type: application/json');
-    echo json_encode($payload);
 }
