@@ -110,7 +110,7 @@ function invalidate_cache_for_table(string $table): void
 /** Generic entity fetch with search, date, sort, and pagination */
 function fetch_entities(
     string $table,
-    string $search = 'TRUE',
+    string $search = '1=1',
     array $allowedSortColumns = ['id'],
     string $sortColumn = 'id',
     string $sortDir = 'ASC',
@@ -129,7 +129,9 @@ function fetch_entities(
     $cacheKey = build_cache_key($table . ':list', [$page, $limit, $sortColumn, $extraWhere, $sortDir, $search, $dateFrom, $dateTo, $dateColumn]);
     if ($cached = cache_get_json($cacheKey))
         return $cached;
-
+if (trim($search) === '') {
+    $search = '1=1';
+}
     $sql = "SELECT * FROM {$table} WHERE {$extraWhere} AND {$search}";
     $params = [];
 
@@ -177,7 +179,7 @@ function fetch_entities(
 
 function count_entities(
     string $table,
-    string $search = 'TRUE',
+    string $search = '1=1',
     string $extraWhere = 'is_active = TRUE',
     ?string $dateColumn = null,
     ?string $dateFrom = null,
@@ -189,7 +191,9 @@ function count_entities(
     $cacheKey = build_cache_key($table . ':count', [$search, $dateFrom, $dateTo, $extraWhere, $dateColumn]);
     if ($cached = cache_get_json($cacheKey))
         return (int) $cached;
-
+if (trim($search) === '') {
+    $search = '1=1';
+}
     $sql = "SELECT COUNT(*) FROM {$table} WHERE {$extraWhere} AND {$search}";
     $params = [];
 
