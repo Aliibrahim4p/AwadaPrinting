@@ -21,6 +21,34 @@ function buildSearchQuery(array $searchquery): string {
 
     return implode(' AND ', $where);
 }
+function buildPurchaseSearchQuery(array $searchquery): string
+{
+    $where = [];
+
+    foreach ($searchquery as $column => $value) {
+        if (empty($value)) continue;
+
+        switch ($column) {
+
+            // Special case: supplier name
+            case 'supplier_name':
+                $value = addslashes($value);
+                $where[] = "supplier_id IN (
+                    SELECT id FROM suppliers 
+                    WHERE name ILIKE '%$value%'
+                )";
+                break;
+
+            // Standard columns from purchase table
+            default:
+                $value = addslashes($value);
+                $where[] = "$column ILIKE '%$value%'";
+                break;
+        }
+    }
+
+    return implode(' AND ', $where);
+}
 
 function param(array $src, string $key, $default = null)
 {
