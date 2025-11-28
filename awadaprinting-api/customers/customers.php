@@ -5,48 +5,48 @@
     <meta charset="UTF-8">
     <title>Customers</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-        }
+    body {
+        font-family: Arial, sans-serif;
+    }
 
-        table {
-            border-collapse: collapse;
-            width: 80%;
-            margin: 20px auto;
-        }
+    table {
+        border-collapse: collapse;
+        width: 80%;
+        margin: 20px auto;
+    }
 
-        th,
-        td {
-            border: 1px solid #ccc;
-            padding: 8px;
-            text-align: left;
-        }
+    th,
+    td {
+        border: 1px solid #ccc;
+        padding: 8px;
+        text-align: left;
+    }
 
-        th {
-            cursor: pointer;
-        }
+    th {
+        cursor: pointer;
+    }
 
-        th:first-child,
-        td:first-child {
-            display: none;
-        }
+    th:first-child,
+    td:first-child {
+        display: none;
+    }
 
-        /* hide ID */
-        input[type="text"] {
-            padding: 5px;
-            width: 200px;
-        }
+    /* hide ID */
+    input[type="text"] {
+        padding: 5px;
+        width: 200px;
+    }
 
-        button {
-            padding: 5px 10px;
-        }
+    button {
+        padding: 5px 10px;
+    }
 
-        .pagination a,
-        .pagination strong {
-            margin: 0 3px;
-            text-decoration: none;
-            cursor: pointer;
-        }
+    .pagination a,
+    .pagination strong {
+        margin: 0 3px;
+        text-decoration: none;
+        cursor: pointer;
+    }
     </style>
 </head>
 
@@ -72,6 +72,15 @@
                 <th>Updated At</th>
                 <th>Actions</th>
             </tr>
+            <tr class="filter-row">
+                <td></td>
+                <td><input type=text id="name"></td>
+                <td><input type=text id="contact_info"></td>
+                <td><input type=text id="notes"></td>
+                <td></td>
+                <td></td>
+                <td><button id="clear-filters">Clear Filter</button></td>
+            </tr>
         </thead>
         <tbody>
         </tbody>
@@ -80,67 +89,105 @@
     <div class="pagination" id="pagination" style="text-align:center; margin-top:20px;"></div>
 
     <script>
-        let currentPage = 1;
-        const rowsPerPage = 20;
+    let currentPage = 1;
+    const rowsPerPage = 20;
 
-        function loadCustomers(page = 1) {
-            currentPage = page;
-            const search = document.getElementById('search').value;
-            const sort = document.getElementById('sort').value;
+    // Clear filters
+    document.getElementById('clear-filters').addEventListener('click', () => {
+        document.querySelectorAll('.filter-row input').forEach(el => el.value = '');
+        loadCustomers(1); // reload after clearing
+    });
 
-            fetch(
-                `../customers/readcustomers.php?api=1&page=${page}&limit=${rowsPerPage}&search=${encodeURIComponent(search)}&sort=${sort}&sortColumn=name`
-            )
-                .then(res => res.json())
-                .then(data => {
-                    const tbody = document.querySelector('#customers-table tbody');
-                    tbody.innerHTML = '';
+    // Apply filters and return object
+    function applyFilters() {
+        const filters = {};
+        const name = document.getElementById('name')?.value.trim();
+        const contact = document.getElementById('contact_info')?.value.trim();
+        const notes = document.getElementById('notes')?.value.trim();
 
-                    if (data.data.length === 0) {
-                        tbody.innerHTML =
-                            `<tr><td colspan="7" style="text-align:center;">No customers found.</td></tr>`;
+        if (name) filters.name = name;
+        if (contact) filters.contact_info = contact;
+        if (notes) filters.notes = notes;
+
+        return filters;
+    }
+
+    // Load customers
+    function loadCustomers(page = 1) {
+        currentPage = page;
+        const sortDir = document.getElementById('sort').value;
+        const search = document.getElementById('search').value.trim();
+        const filters = applyFilters();
+
+        // Build query parameters for PHP API
+        const params = new URLSearchParams();
+        params.append('api', 1);
+        params.append('page', page);
+        params.append('limit', rowsPerPage);
+        params.append('sortColumn', 'name');
+        params.append('sortDir', sortDir);
+
+        if (search) params.append('query[general]', search);
+        for (const key in filters) {
+            params.append(`query[${key}]`, filters[key]);
+        }
+
+        fetch(`../customers/readcustomers.php?${params.toString()}`)
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.querySelector('#customers-table tbody');
+                tbody.innerHTML = '';
+
+                if (data.data.length === 0) {
+                    tbody.innerHTML =
+                    `<tr><td colspan="7" style="text-align:center;">No customers found.</td></tr>`;
+                } else {
+                    data.data.forEach(c => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                        <td>${c.id}</td>
+                        <td>${c.name}</td>
+                        <td>${c.contact_info}</td>
+                        <td>${c.notes}</td>
+                        <td>${c.created_at}</td>
+                        <td>${c.updated_at}</td>
+                        <td>
+                            <button onclick="window.location.href='viewcustomer_demo.php?id=${c.id}'">View</button>
+                            <button onclick="window.location.href='updatecustomerform.php?id=${c.id}'">Update</button>
+                            <button onclick="deleteCustomer(${c.id})">Delete</button>
+                        </td>
+                    `;
+                        tbody.appendChild(tr);
+                    });
+                }
+
+                // Pagination
+                const pagination = document.getElementById('pagination');
+                pagination.innerHTML = '';
+                for (let i = 1; i <= data.total_pages; i++) {
+                    if (i === data.page) {
+                        pagination.innerHTML += `<strong>${i}</strong> `;
                     } else {
-                        data.data.forEach(c => {
-                            const tr = document.createElement('tr');
-                            tr.innerHTML = `
-                                <td>${c.id}</td>
-                                <td>${c.name}</td>
-                                <td>${c.contact_info}</td>
-                                <td>${c.notes}</td>
-                                <td>${c.created_at}</td>
-                                <td>${c.updated_at}</td>
-                                <td>
-                                    <button onclick="window.location.href='viewcustomer_demo.php?id=${c.id}'">View</button>
-                                    <button onclick="window.location.href='updatecustomerform.php?id=${c.id}'">Update</button>
-                                    
-                                    <button onclick="window.location.href='deletecustomer_demo.php?id=${c.id}'">Delete</button>
-                                </td>
-                            `;
-                            tbody.appendChild(tr);
-                        });
+                        pagination.innerHTML += `<a onclick="loadCustomers(${i})">${i}</a> `;
                     }
+                }
+            });
+    }
 
-                    // Pagination
-                    const pagination = document.getElementById('pagination');
-                    pagination.innerHTML = '';
-                    for (let i = 1; i <= data.total_pages; i++) {
-                        if (i === data.page) {
-                            pagination.innerHTML += `<strong>${i}</strong> `;
-                        } else {
-                            pagination.innerHTML += `<a onclick="loadCustomers(${i})">${i}</a> `;
-                        }
-                    }
-                });
-        }
+    // Delete customer
+    function deleteCustomer(id) {
+        if (!confirm('Are you sure you want to delete this customer?')) return;
+        fetch(`deletecustomer_demo.php?id=${id}`)
+            .then(() => loadCustomers(currentPage));
+    }
 
-        function deleteCustomer(id) {
-            fetch(`deletecustomer.php?id=${id}`)
-                .then(() => loadCustomers(currentPage));
-        }
+    // Search button click
+    document.querySelector("button[onclick='loadCustomers()']").addEventListener('click', () => loadCustomers(1));
 
-        // Initial load
-        loadCustomers();
+    // Initial load
+    loadCustomers();
     </script>
+
 </body>
 
 </html>
