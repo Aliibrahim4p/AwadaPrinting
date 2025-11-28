@@ -8,6 +8,20 @@ $ALLOWED_ENTITY_TABLES = ['customers', 'suppliers', 'purchases', 'stock'];
 /** --- Helpers --- */
 
 /** Safely get value from array */
+
+
+function buildSearchQuery(array $searchquery): string {
+    $where = [];
+
+    foreach ($searchquery as $column => $value) {
+        if (!empty($value)) {
+            $where[] = "$column ILIKE '%" . addslashes($value) . "%'";
+        }
+    }
+
+    return implode(' AND ', $where);
+}
+
 function param(array $src, string $key, $default = null)
 {
     return $src[$key] ?? $default;
