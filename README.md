@@ -26,4 +26,10 @@ This is my first project using PHP as a REST API backend, paired with a React fr
 - 3rd party cots managemnets(ex tailoring,ironing...)
 -Management for B2B deals( order for order)
 
+## **Work Flow**
+- 🗄️ Building the DB schema – DONE
+- 🔧 Building the APIs – In Progress
+- 💻 Building the Frontend Interface – Pending
+
+
 ## **In Progress**
