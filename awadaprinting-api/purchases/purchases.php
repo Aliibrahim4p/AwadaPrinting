@@ -5,80 +5,70 @@
     <meta charset="UTF-8">
     <title>Purchases</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-        }
+    body {
+        font-family: Arial, sans-serif;
+    }
 
-        .filters {
-            text-align: center;
-            margin-top: 20px;
-        }
+    table {
+        border-collapse: collapse;
+        width: 90%;
+        margin: 20px auto;
+    }
 
-        input[type="text"],
-        input[type="date"],
-        select {
-            padding: 6px;
-            margin: 0 6px 10px 0;
-        }
+    th,
+    td {
+        border: 1px solid #ccc;
+        padding: 8px;
+        text-align: left;
+    }
 
-        button {
-            padding: 6px 10px;
-            margin: 0 4px;
-        }
+    th {
+        cursor: pointer;
+    }
 
-        table {
-            border-collapse: collapse;
-            width: 90%;
-            margin: 20px auto;
-        }
+    th:first-child,
+    td:first-child {
+        display: none;
+        /* hide ID */
+    }
 
-        th,
-        td {
-            border: 1px solid #ccc;
-            padding: 8px;
-            text-align: left;
-        }
+    .filters {
+        text-align: center;
+        margin-top: 20px;
+    }
 
-        th {
-            cursor: pointer;
-        }
+    input[type="text"],
+    input[type="date"],
+    select {
+        padding: 6px;
+    }
 
-        th:first-child,
-        td:first-child {
-            display: none;
-        }
+    button {
+        padding: 6px 10px;
+    }
 
-        .pagination {
-            text-align: center;
-            margin-top: 20px;
-        }
+    .pagination {
+        text-align: center;
+        margin-top: 20px;
+    }
 
-        .pagination a,
-        .pagination strong {
-            margin: 0 4px;
-            text-decoration: none;
-            cursor: pointer;
-        }
-
-        .empty-row {
-            text-align: center;
-            color: #777;
-        }
+    .pagination a,
+    .pagination strong {
+        margin: 0 4px;
+        cursor: pointer;
+    }
     </style>
 </head>
 
 <body>
     <div class="filters">
         <button onclick="window.location.href='addpurchaseform.php'">Add Purchase</button>
-        <input type="text" id="search" placeholder="Search by note, supplier, or total cost">
-        <input type="date" id="from_date">
-        <input type="date" id="to_date">
+        <input type="text" id="general_search" placeholder="Search notes, supplier, cost">
         <select id="sort">
             <option value="ASC">Date Asc</option>
             <option value="DESC" selected>Date Desc</option>
         </select>
-        <button onclick="loadPurchases(1)">Search</button>
-        <button onclick="resetFilters()">Reset</button>
+        <button onclick="loadPurchases()">Search</button>
     </div>
 
     <table id="purchases-table">
@@ -86,124 +76,147 @@
             <tr>
                 <th>ID</th>
                 <th>Supplier</th>
-                <th>Note</th>
+                <th>Notes</th>
                 <th>Total Cost</th>
                 <th>Purchase Date</th>
                 <th>Actions</th>
             </tr>
+
+            <!-- Filter row like customers page -->
+            <tr class="filter-row">
+                <td></td>
+                <td><input type="text" id="supplier_name"></td>
+                <td><input type="text" id="notes"></td>
+                <td><input type="text" id="total_cost"></td>
+                <td><input type="date" id="purchase_date"></td>
+                <td><button id="clear-filters">Clear Filter</button></td>
+            </tr>
         </thead>
+
         <tbody></tbody>
     </table>
 
     <div class="pagination" id="pagination"></div>
 
     <script>
-        const rowsPerPage = 20;
-        let currentPage = 1;
+    let currentPage = 1;
+    const rowsPerPage = 20;
 
-        async function loadPurchases(page = 1) {
-            currentPage = page;
+    // Clear filters
+    document.getElementById('clear-filters').addEventListener('click', () => {
+        document.querySelectorAll('.filter-row input').forEach(el => el.value = '');
+        loadPurchases(1);
+    });
 
-            const searchText = document.getElementById('search').value.trim();
-            const fromDate = document.getElementById('from_date').value;
-            const toDate = document.getElementById('to_date').value;
-            const sortDir = document.getElementById('sort').value || 'DESC';
+    // Collect filters
+    function applyFilters() {
+        const filters = {};
 
-            const params = new URLSearchParams();
-            params.set('api', '1');
-            params.set('page', page);
-            params.set('limit', rowsPerPage);
-            params.set('sortColumn', 'purchase_date');
-            params.set('sortDir', sortDir);
-            if (searchText) params.set('search', searchText);
-            if (fromDate) params.set('dateFrom', fromDate);
-            if (toDate) params.set('dateTo', toDate);
+        const supplier = document.getElementById('supplier_name').value.trim();
+        const notes = document.getElementById('notes').value.trim();
+        const total = document.getElementById('total_cost').value.trim();
+        const date = document.getElementById('purchase_date').value;
 
-            try {
-                const res = await fetch(`readpurchases.php?${params.toString()}`);
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                const data = await res.json();
+        if (supplier) filters.supplier_name = supplier;
+        if (notes) filters.notes = notes;
+        if (total) filters.total_cost = total;
+        if (date) filters.purchase_date = date;
 
+        return filters;
+    }
+
+    // Load purchases
+    function loadPurchases(page = 1) {
+        currentPage = page;
+
+        const sortDir = document.getElementById('sort').value;
+        const general = document.getElementById('general_search').value.trim();
+        const filters = applyFilters();
+
+        const params = new URLSearchParams();
+        params.append('api', 1);
+        params.append('page', page);
+        params.append('limit', rowsPerPage);
+        params.append('sortColumn', 'purchase_date');
+        params.append('sortDir', sortDir);
+
+        if (general) params.append('query[general]', general);
+
+        for (const key in filters) {
+            params.append(`query[${key}]`, filters[key]);
+        }
+
+        fetch(`readpurchases.php?${params.toString()}`)
+            .then(res => res.json())
+            .then(data => {
                 renderTable(data.data || []);
                 renderPagination(data.page || 1, data.total_pages || 1);
-            } catch (err) {
-                console.error('loadPurchases error', err);
-                const tbody = document.querySelector('#purchases-table tbody');
-                tbody.innerHTML = `<tr><td colspan="6" class="empty-row">Error loading purchases</td></tr>`;
-            }
+            })
+            .catch(err => console.error('Error loading purchases:', err));
+    }
+
+    // Render table
+    function renderTable(purchases) {
+        const tbody = document.querySelector('#purchases-table tbody');
+        tbody.innerHTML = '';
+
+        if (purchases.length === 0) {
+            tbody.innerHTML =
+                `<tr><td colspan="6" style="text-align:center;">No purchases found.</td></tr>`;
+            return;
         }
 
-        function renderTable(purchases) {
-            const tbody = document.querySelector('#purchases-table tbody');
-            tbody.innerHTML = '';
+        purchases.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                    <td>${p.id}</td>
+                    <td>${p.supplier_name || '-'}</td>
+                    <td>${p.notes || '-'}</td>
+                    <td>${p.total_cost || 0}</td>
+                    <td>${p.purchase_date || '-'}</td>
+                    <td>
+                        <button onclick="viewPurchase(${p.id})">View</button>
+                        <button onclick="updatePurchase(${p.id})">Update</button>
+                        <button onclick="deletePurchase(${p.id})">Delete</button>
+                    </td>
+                `;
+            tbody.appendChild(tr);
+        });
+    }
 
-            if (!purchases.length) {
-                tbody.innerHTML = `<tr><td colspan="6" class="empty-row">No purchases found</td></tr>`;
-                return;
-            }
+    // Pagination
+    function renderPagination(page, totalPages) {
+        const pagination = document.getElementById('pagination');
+        pagination.innerHTML = '';
 
-            purchases.forEach(p => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-            <td>${p.id}</td>
-            <td>${p.supplier_name || '-'}</td>
-            <td>${p.notes || '-'}</td>
-            <td>${p.total_cost || 0}</td>
-            <td>${p.purchase_date || '-'}</td>
-            <td>
-                <button onclick="viewPurchase(${p.id})">View</button>
-                <button onclick="updatePurchase(${p.id})">Update</button>
-                <button onclick="deletePurchase(${p.id})">Delete</button>
-            </td>
-        `;
-                tbody.appendChild(tr);
-            });
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === page) pagination.innerHTML += `<strong>${i}</strong> `;
+            else pagination.innerHTML += `<a onclick="loadPurchases(${i})">${i}</a> `;
         }
+    }
 
-        function renderPagination(page, totalPages) {
-            const pagination = document.getElementById('pagination');
-            pagination.innerHTML = '';
+    // Actions
+    function viewPurchase(id) {
+        window.location.href = `viewpurchasedemo.php?id=${id}`;
+    }
 
-            if (totalPages <= 1) return;
+    function updatePurchase(id) {
+        window.location.href = `updatepurchase.php?id=${id}`;
+    }
 
-            for (let i = 1; i <= totalPages; i++) {
-                if (i === page) pagination.innerHTML += `<strong>${i}</strong>`;
-                else pagination.innerHTML += `<a onclick="loadPurchases(${i})">${i}</a>`;
-            }
-        }
+    async function deletePurchase(id) {
+        if (!confirm('Delete this purchase?')) return;
 
-        function resetFilters() {
-            document.getElementById('search').value = '';
-            document.getElementById('from_date').value = '';
-            document.getElementById('to_date').value = '';
-            document.getElementById('sort').value = 'DESC';
-            loadPurchases(1);
-        }
+        await fetch(`deletepurchase.php?id=${id}`, {
+            method: 'DELETE'
+        });
+        loadPurchases(currentPage);
+    }
 
-        function viewPurchase(id) {
-            window.location.href = `viewpurchasedemo.php?id=${id}`;
-        }
-
-        function updatePurchase(id) {
-            window.location.href = `updatepurchase.php?id=${id}`;
-        }
-
-        async function deletePurchase(id) {
-            if (!confirm('Delete this purchase?')) return;
-            try {
-                const res = await fetch(`deletepurchase.php?id=${id}`, {
-                    method: 'DELETE'
-                });
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                loadPurchases(currentPage);
-            } catch (err) {
-                console.error('Delete failed:', err);
-                alert('Failed to delete purchase.');
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => loadPurchases(1));
+    // Initial load
+    loadPurchases();
     </script>
+
 </body>
 
 </html>

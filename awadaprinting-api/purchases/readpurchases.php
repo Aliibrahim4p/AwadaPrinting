@@ -97,6 +97,10 @@ if (isset($_GET['api'])) {
     $sortColumn = (string) param($_GET, 'sortColumn', 'id');
     $sortDir = (string) param($_GET, 'sortDir', 'DESC');
     $search = (string) param($_GET, 'search', '');
+$searchquery = (array) param($_GET, 'query', []);
+
+  $search=buildPurchaseSearchQuery($searchquery);
+  
 
     $purchases = fetchPurchases($search, $sortColumn, $sortDir, $limit, $page);
     $total = countPurchases($search);
