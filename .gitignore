@@ -1,1 +1,2 @@
-awadapriting-api/config/database.php
+# Ignore database config
+awadaprinting-api/config/database.php
