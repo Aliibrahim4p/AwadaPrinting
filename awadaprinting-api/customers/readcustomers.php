@@ -23,20 +23,8 @@ if (isset($_GET['api'])) {
     $sortDir = (string) param($_GET, 'sortDir', 'ASC');
     $searchquery = (array) param($_GET, 'query', []);
 
-    $where = []; 
-if (!empty($searchquery['name'])) {
-    $where[] = "name ILIKE '%" . addslashes($searchquery['name']) . "%'";
-}
-if (!empty($searchquery['notes'])) {
-    $where[] = "notes ILIKE '%" . addslashes($searchquery['notes']) . "%'";
-}
-if (!empty($searchquery['contact_info'])) {
-    $where[] = "contact_info ILIKE '%" . addslashes($searchquery['contact_info']) . "%'";
-}
-
-// Combine conditions, no 'WHERE'
-$search = implode(' AND ', $where);
-
+  $search=buildSearchQuery($searchquery);
+  
 
     $customers = fetchCustomers($search, $sortColumn, $sortDir, $limit, $page);
     $total = countCustomers($search);
