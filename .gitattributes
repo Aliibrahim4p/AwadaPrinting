@@ -9,5 +9,3 @@
 # Ignore vendor / node_modules
 vendor/* linguist-vendored
 node_modules/* linguist-vendored
-# Mark a single file as vendored (ignored by GitHub language stats)
-awadapriting-api/config/database.php linguist-vendored
