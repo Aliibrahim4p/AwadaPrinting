@@ -6,12 +6,12 @@ function fetchCustomers($search = '', $sortColumn = 'id', $sortDir = 'ASC', $lim
 {
     $allowedSort = ['id', 'name'];
     [$sortColumn, $sortDir] = normalize_sort($sortColumn, $sortDir, $allowedSort);
-    return fetch_entities('customers', 'name', $search, $allowedSort, $sortColumn, $sortDir, (int)$limit, (int)$page, 'is_active = TRUE');
+    return fetch_entities('customers' ,$search, $allowedSort, $sortColumn, $sortDir, (int)$limit, (int)$page, 'is_active = TRUE');
 }
 
 function countCustomers($search = ''): int
 {
-    return count_entities('customers', 'name', $search, 'is_active = TRUE');
+    return count_entities('customers', $search, 'is_active = TRUE');
 }
 
 // API endpoint

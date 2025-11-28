@@ -110,8 +110,7 @@ function invalidate_cache_for_table(string $table): void
 /** Generic entity fetch with search, date, sort, and pagination */
 function fetch_entities(
     string $table,
-    array|string $searchColumns = [],
-    string $search = '',
+    string $search = 'TRUE',
     array $allowedSortColumns = ['id'],
     string $sortColumn = 'id',
     string $sortDir = 'ASC',
@@ -131,20 +130,20 @@ function fetch_entities(
     if ($cached = cache_get_json($cacheKey))
         return $cached;
 
-    $sql = "SELECT * FROM {$table} WHERE {$extraWhere}";
+    $sql = "SELECT * FROM {$table} WHERE {$extraWhere} AND {$search}";
     $params = [];
 
     // Multi-column search
-    if ($search !== '' && !empty($searchColumns)) {
-        $searchColumns = (array) $searchColumns;
-        $clauses = [];
-        foreach ($searchColumns as $i => $col) {
-            $param = ":search{$i}";
-            $clauses[] = "{$col} ILIKE {$param}";
-            $params[$param] = "%{$search}%";
-        }
-        $sql .= " AND (" . implode(" OR ", $clauses) . ")";
-    }
+    // if ($search !== '' && !empty($searchColumns)) {
+    //     $searchColumns = (array) $searchColumns;
+    //     $clauses = [];
+    //     foreach ($searchColumns as $i => $col) {
+    //         $param = ":search{$i}";
+    //         $clauses[] = "{$col} ILIKE {$param}";
+    //         $params[$param] = "%{$search}%";
+    //     }
+    //     $sql .= " AND (" . implode(" OR ", $clauses) . ")";
+    // }
 
     // Date filter
     if ($dateColumn) {
@@ -178,8 +177,7 @@ function fetch_entities(
 
 function count_entities(
     string $table,
-    array|string $searchColumns = [],
-    string $search = '',
+    string $search = 'TRUE',
     string $extraWhere = 'is_active = TRUE',
     ?string $dateColumn = null,
     ?string $dateFrom = null,
@@ -192,19 +190,11 @@ function count_entities(
     if ($cached = cache_get_json($cacheKey))
         return (int) $cached;
 
-    $sql = "SELECT COUNT(*) FROM {$table} WHERE {$extraWhere}";
+    $sql = "SELECT COUNT(*) FROM {$table} WHERE {$extraWhere} AND {$search}";
     $params = [];
 
-    if ($search !== '' && !empty($searchColumns)) {
-        $searchColumns = (array) $searchColumns;
-        $clauses = [];
-        foreach ($searchColumns as $i => $col) {
-            $param = ":search{$i}";
-            $clauses[] = "{$col} ILIKE {$param}";
-            $params[$param] = "%{$search}%";
-        }
-        $sql .= " AND (" . implode(" OR ", $clauses) . ")";
-    }
+   
+    
 
     if ($dateColumn) {
         if ($dateFrom && $dateTo) {

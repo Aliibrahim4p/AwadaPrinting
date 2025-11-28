@@ -11,7 +11,6 @@ function fetchStock($search = '', $sortColumn = 'id', $sortDir = 'ASC', $limit =
 
     return fetch_entities(
         'stock',
-        'name',
         $search,
         $allowedSort,
         $sortColumn,
@@ -27,7 +26,7 @@ function fetchStock($search = '', $sortColumn = 'id', $sortDir = 'ASC', $limit =
  */
 function countStock($search = ''): int
 {
-    return count_entities('stock', 'name', $search, '1=1');
+    return count_entities('stock', $search, '1=1');
 }
 
 // API endpoint

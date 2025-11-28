@@ -5,12 +5,12 @@ function fetchSuppliers($search = '', $sortColumn = 'id', $sortDir = 'ASC', $lim
 {
     $allowedSort = ['id', 'name'];
     [$sortColumn, $sortDir] = normalize_sort($sortColumn, $sortDir, $allowedSort);
-    return fetch_entities('suppliers', 'name', $search, $allowedSort, $sortColumn, $sortDir, (int)$limit, (int)$page, 'is_active = TRUE');
+    return fetch_entities('suppliers',  $search, $allowedSort, $sortColumn, $sortDir, (int)$limit, (int)$page, 'is_active = TRUE');
 }
 
 function countSuppliers($search = ''): int
 {
-    return count_entities('suppliers', 'name', $search, 'is_active = TRUE');
+    return count_entities('suppliers',  $search, 'is_active = TRUE');
 }
 
 // API endpoint

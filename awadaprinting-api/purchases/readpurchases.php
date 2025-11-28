@@ -33,7 +33,6 @@ function fetchPurchases(string $search = '', string $sortColumn = 'id', string $
     // Fetch purchases with generic helper
     $purchases = fetch_entities(
         'purchases',
-        $searchColumns,
         $search,
         $allowedSort,
         $sortColumn,
@@ -83,7 +82,6 @@ function countPurchases(string $search = ''): int
     }
     return count_entities(
         'purchases',
-        $searchColumns,
         $search,
         $extraWhere,
         'purchase_date',
