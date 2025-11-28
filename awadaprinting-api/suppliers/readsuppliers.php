@@ -20,6 +20,10 @@ if (isset($_GET['api'])) {
     $sortColumn = (string) param($_GET, 'sortColumn', 'id');
     $sortDir = (string) param($_GET, 'sortDir', 'ASC');
     $search = (string) param($_GET, 'search', '');
+    $searchquery = (array) param($_GET, 'query', []);
+
+  $search=buildSearchQuery($searchquery);
+  
 
     $suppliers = fetchSuppliers($search, $sortColumn, $sortDir, $limit, $page);
     $total = countSuppliers($search);
