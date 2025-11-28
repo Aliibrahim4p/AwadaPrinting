@@ -1,0 +1,11 @@
+# Force GitHub to treat files correctly
+*.php linguist-language=PHP
+*.js linguist-language=JavaScript
+*.css linguist-language=CSS
+*.html linguist-language=HTML
+.tsx linguist-language=TypeScriptX
+.jsx linguist-language=JavaScriptX
+.ts linguist-language=TypeScript
+# Ignore vendor / node_modules
+vendor/* linguist-vendored
+node_modules/* linguist-vendored
