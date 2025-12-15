@@ -76,8 +76,6 @@ try {
     }
 
     $pdo->commit();
-    clearPurchasesCache($redis);
-    clearStockCache($redis);
     echo json_encode([
         'success' => true,
         'purchase_id' => $purchase_id,

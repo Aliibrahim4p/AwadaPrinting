@@ -102,13 +102,11 @@
     let currentPage = 1;
     const rowsPerPage = 20;
 
-    // Clear filters
     document.getElementById('clear-filters').addEventListener('click', () => {
         document.querySelectorAll('.filter-row input').forEach(el => el.value = '');
         loadPurchases(1);
     });
 
-    // Collect filters
     function applyFilters() {
         const filters = {};
 
@@ -201,7 +199,7 @@
     }
 
     function updatePurchase(id) {
-        window.location.href = `updatepurchase.php?id=${id}`;
+        window.location.href = `updatepurchasedemo.php?id=${id}`;
     }
 
     async function deletePurchase(id) {

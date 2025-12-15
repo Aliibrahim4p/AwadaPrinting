@@ -1,5 +1,4 @@
 <?php
-require_once __DIR__ . '/redis.php';
 require_once __DIR__ . '/db.php';
 
 /** Global whitelist of allowed entity tables */
@@ -77,32 +76,6 @@ function validate_table(string $table): void
         throw new InvalidArgumentException("Invalid table: {$table}");
 }
 
-/** Build Redis cache key */
-function build_cache_key(string $namespace, array $parts): string
-{
-    $encoded = array_map(fn($p) => is_array($p) ? md5(json_encode($p)) : (is_bool($p) ? ($p ? '1' : '0') : strtolower(trim((string) $p))), $parts);
-    return $namespace . ':' . implode(':', $encoded);
-}
-
-/** Redis get/set JSON */
-function cache_get_json(string $key)
-{
-    global $redis;
-    try {
-        $c = $redis->get($key);
-        return $c === null ? null : json_decode($c, true);
-    } catch (\Exception) {
-        return null;
-    }
-}
-function cache_set_json(string $key, $value, int $ttl = 300): void
-{
-    global $redis;
-    try {
-        $redis->setex($key, $ttl, json_encode($value));
-    } catch (\Exception) {
-    }
-}
 
 /** Parse JSON body */
 function parse_json_body(): array
@@ -133,21 +106,7 @@ function json_error(string $msg, int $code = 400): void
     json_response(['error' => $msg], $code);
 }
 
-/** Invalidate Redis caches for table */
-function invalidate_cache_for_table(string $table): void
-{
-    global $redis;
-    if (!isset($redis))
-        return;
-    validate_table($table);
-    try {
-        foreach ([$table . ':list:*', $table . ':count:*'] as $pattern) {
-            foreach ($redis->scanIterator($pattern) as $key)
-                $redis->del($key);
-        }
-    } catch (\Exception) {
-    }
-}
+
 
 /** Generic entity fetch with search, date, sort, and pagination */
 function fetch_entities(
@@ -168,9 +127,7 @@ function fetch_entities(
     [$sortColumn, $sortDir] = normalize_sort($sortColumn, $sortDir, $allowedSortColumns);
     $offset = max(0, ($page - 1) * $limit);
 
-    $cacheKey = build_cache_key($table . ':list', [$page, $limit, $sortColumn, $extraWhere, $sortDir, $search, $dateFrom, $dateTo, $dateColumn]);
-    if ($cached = cache_get_json($cacheKey))
-        return $cached;
+
 if (trim($search) === '') {
     $search = '1=1';
 }
@@ -215,7 +172,6 @@ if (trim($search) === '') {
     $stmt->execute();
     $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    cache_set_json($cacheKey, $data);
     return $data;
 }
 
@@ -230,9 +186,7 @@ function count_entities(
     global $pdo;
     validate_table($table);
 
-    $cacheKey = build_cache_key($table . ':count', [$search, $dateFrom, $dateTo, $extraWhere, $dateColumn]);
-    if ($cached = cache_get_json($cacheKey))
-        return (int) $cached;
+   
 if (trim($search) === '') {
     $search = '1=1';
 }
@@ -264,7 +218,6 @@ if (trim($search) === '') {
     $stmt->execute();
     $count = (int) $stmt->fetchColumn();
 
-    cache_set_json($cacheKey, $count);
     return $count;
 }
 
@@ -308,7 +261,6 @@ function update_entity(string $table, int $id, array $input, array $allowedField
     $stmt = $pdo->prepare('UPDATE ' . $table . ' SET ' . implode(', ', $sets) . ' WHERE id=:id');
     $stmt->execute($params);
 
-    invalidate_cache_for_table($table);
     $updated = fetch_entity_by_id($table, $id, false);
     if (!$updated)
         throw new RuntimeException('Update failed or record not found.');
@@ -323,7 +275,5 @@ function soft_delete_entity(string $table, int $id): bool
     $stmt = $pdo->prepare('UPDATE ' . $table . ' SET is_active=FALSE, updated_at=NOW() WHERE id=:id AND is_active=TRUE');
     $stmt->execute([':id' => $id]);
     $ok = $stmt->rowCount() > 0;
-    if ($ok)
-        invalidate_cache_for_table($table);
-    return $ok;
+        return $ok;
 }
