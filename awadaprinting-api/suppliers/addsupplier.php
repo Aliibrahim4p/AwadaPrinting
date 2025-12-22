@@ -56,10 +56,7 @@ try {
     ]);
     $newId = (int) $stmt->fetchColumn();
 
-    // Clear related cache keys in Redis so subsequent reads are fresh
-    if (function_exists('clearSuppliersCache')) {
-        clearSuppliersCache($redis);
-    }
+
 
     // Fetch updated data for the response
     $page = 1;

@@ -1,7 +1,6 @@
 <?php
 ob_start();
 require_once '../config/db.php';
-require_once '../config/redis.php';
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');

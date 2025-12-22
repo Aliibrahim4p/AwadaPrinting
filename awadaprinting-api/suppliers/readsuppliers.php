@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../config/helpers.php';
+require_once __DIR__ . '/../utils/helpers.php';
 
 function fetchSuppliers($search = '', $sortColumn = 'id', $sortDir = 'ASC', $limit = 20, $page = 1): array
 {

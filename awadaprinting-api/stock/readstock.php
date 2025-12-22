@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../config/helpers.php';
+require_once __DIR__ . '/../utils/helpers.php';
 
 /**
  * Fetch all stock items (no quantity filter)

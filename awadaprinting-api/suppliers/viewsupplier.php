@@ -1,5 +1,5 @@
 <?php
-require_once "../config/db.php";
+require_once "../utils/db.php";
 header('Content-Type: application/json');
 
 $id = $_GET['id'] ?? null;

@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../config/helpers.php';
+require_once __DIR__ . '/../utils/helpers.php';
 
 // Wrappers to keep compatibility while using generic helpers
 function fetchCustomers(string $search = '', $sortColumn = 'id', $sortDir = 'ASC', $limit = 20, $page = 1): array
