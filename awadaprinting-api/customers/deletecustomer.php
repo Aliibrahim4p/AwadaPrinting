@@ -1,5 +1,5 @@
 <?php
-require_once '../config/helpers.php';
+require_once '../utils/helpers.php';
 
 header('Content-Type: application/json');
 
