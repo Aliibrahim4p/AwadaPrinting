@@ -8,10 +8,14 @@ function fetchStock($search = '', $sortColumn = 'id', $sortDir = 'ASC', $limit =
 {
     $allowedSort = ['id', 'name', 'unit_of_measure', 'quantity_on_hand'];
     [$sortColumn, $sortDir] = normalize_sort($sortColumn, $sortDir, $allowedSort);
-
+    $searchColumns = ['name', 'unit_of_measure::TEXT'];
+    if($search) {
+        global $searchQuery;
+        $searchQuery="(" . implode(" ILIKE '%" . $search . "%' OR ", $searchColumns) . " ILIKE '%" . $search . "%')";
+    };
     return fetch_entities(
         'stock',
-        $search,
+        $searchQuery ?? '',
         $allowedSort,
         $sortColumn,
         $sortDir,
@@ -26,7 +30,8 @@ function fetchStock($search = '', $sortColumn = 'id', $sortDir = 'ASC', $limit =
  */
 function countStock($search = ''): int
 {
-    return count_entities('stock', $search, '1=1');
+    global $searchQuery;
+    return count_entities('stock', $searchQuery ?? '', '1=1');
 }
 
 // API endpoint
