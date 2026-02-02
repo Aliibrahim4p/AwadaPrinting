@@ -2,7 +2,6 @@
 ob_start();
 
 require_once '../config/db.php';
-require_once '../config/redis.php';
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -55,10 +54,7 @@ try {
     ]);
     $newId = (int) $stmt->fetchColumn();
 
-    // Clear related cache keys in Redis so subsequent reads are fresh
-    if (function_exists('clearCustomersCache')) {
-        clearCustomersCache($redis);
-    }
+   
 
     // Fetch updated data for the response
     $page = 1;
