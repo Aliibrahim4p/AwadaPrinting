@@ -39,13 +39,30 @@ if ($stockId <= 0 || $quantity <= 0) {
     }
     try{
         $pdo->beginTransaction();
+        // Check if stock exists and has enough quantity
+        $stmt = $pdo->prepare("SELECT quantity_on_hand FROM stock WHERE id = :stock_id FOR UPDATE");
+        $stmt->execute([':stock_id' => $stockId]);
+        $stock = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$stock) { 
+            $pdo->rollBack();
+            http_response_code(404);
+            echo json_encode(['error' => 'Stock item not found.']);
+            exit;
+        }else{
+        // add the cost of the last purchased for waste Entry
+        $stmt=$pdo->prepare("SELECT pd.price_per_unit,p.purchase_date FROM purchase_details pd JOIN purchases p ON pd.purchase_id = p.id WHERE pd.stock_id = :stock_id ORDER BY p.purchase_date DESC LIMIT 1");
+        $stmt->execute([':stock_id' => $stockId]);
+        $pricePerUnit = $stmt->fetchColumn();
 
         // Insert waste record
-        $stmt = $pdo->prepare("INSERT INTO stock_waste (stock_id, quantity, reason, waste_date) VALUES (:stock_id, :quantity, :reason, NOW())");
+        $stmt = $pdo->prepare("INSERT INTO stock_waste (stock_id, quantity, reason, waste_date,cost) VALUES (:stock_id, :quantity, :reason, NOW(),:cost)");
+         $stmt->bindValue(':cost', $pricePerUnit * $quantity    );
         $stmt->execute([
             ':stock_id' => $stockId,
             ':quantity' => $quantity,
-            ':reason' => $reason
+            ':reason' => $reason,
+            ':cost' => $pricePerUnit * $quantity
+
         ]);
 
         // Update stock quantity
@@ -59,7 +76,7 @@ if ($stockId <= 0 || $quantity <= 0) {
         echo json_encode(['success' => true]);
         exit;
         
-        
+        }
     } catch (Exception $e) {
         $pdo->rollBack();
             http_response_code(500);
