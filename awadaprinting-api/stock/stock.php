@@ -72,8 +72,9 @@
         </select>
         <button onclick="loadStock()">Search</button>
 
-    </div>
 
+    </div>
+    <a href="waste.php">Waste Management </a>
     <table id="stock-table">
         <thead>
             <tr>

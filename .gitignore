@@ -1,2 +1,4 @@
 # Ignore database config
 awadaprinting-api/config/database.php
+awadaprinting-api/.idea/
+.idea
