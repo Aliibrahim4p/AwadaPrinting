@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../config/db.php';
 
 /** Global whitelist of allowed entity tables */
-$ALLOWED_ENTITY_TABLES = ['customers', 'suppliers', 'purchases', 'stock'];
+$ALLOWED_ENTITY_TABLES = ['customers', 'suppliers', 'purchases', 'stock','stock_waste'];
 
 /** --- Helpers --- */
 
