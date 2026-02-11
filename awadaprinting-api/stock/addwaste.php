@@ -48,7 +48,14 @@ if ($stockId <= 0 || $quantity <= 0) {
             http_response_code(404);
             echo json_encode(['error' => 'Stock item not found.']);
             exit;
-        }else{
+        }
+        if($stock['quantity_on_hand'] < $quantity) {
+            $pdo->rollBack();
+            http_response_code(400);
+            echo json_encode(['error' => 'Not enough stock on hand to add waste.']);
+            exit;
+        }   
+
         // add the cost of the last purchased for waste Entry
         $stmt=$pdo->prepare("SELECT pd.price_per_unit,p.purchase_date FROM purchase_details pd JOIN purchases p ON pd.purchase_id = p.id WHERE pd.stock_id = :stock_id ORDER BY p.purchase_date DESC LIMIT 1");
         $stmt->execute([':stock_id' => $stockId]);
@@ -76,7 +83,7 @@ if ($stockId <= 0 || $quantity <= 0) {
         echo json_encode(['success' => true]);
         exit;
         
-        }
+        
     } catch (Exception $e) {
         $pdo->rollBack();
             http_response_code(500);
