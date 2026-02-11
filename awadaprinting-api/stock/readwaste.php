@@ -11,10 +11,14 @@ function fetchWaste(
     int $limit = 20,
     int $page = 1
 ): array {
+    //get stock name for each waste entry
+    $from = "stock_waste sw
+         LEFT JOIN stock s ON sw.stock_id = s.id";
+         
     $allowedSort = ['waste_date', 'quantity', 'stock_id'];
     [$sortColumn, $sortDir] = normalize_sort($sortColumn, $sortDir, $allowedSort);
 
-    $searchColumns = ['stock_id::TEXT'];
+$searchColumns = ['sw.stock_id::TEXT', 's.name'];
     if ($search) {
         global $searchQuery;
         $searchQuery = "(" . implode(
@@ -24,14 +28,15 @@ function fetchWaste(
     }
 
     return fetch_entities(
-        'stock_waste',
+        $from ,
         $searchQuery ?? '',
         $allowedSort,
         $sortColumn,
         $sortDir,
         $limit,
         $page,
-        'stock_waste.quantity > 0'
+        'sw.quantity > 0',
+        selectColumns: 'sw.*, s.name AS stock_name'
     );
 }
 
@@ -40,11 +45,14 @@ function fetchWaste(
  */
 function countWaste(string $search = ''): int
 {
+     $from = "stock_waste sw
+         LEFT JOIN stock s ON sw.stock_id = s.id";
     global $searchQuery;
     return count_entities(
-        'stock_waste',
+        $from,
+         
         $searchQuery ?? '',
-        'stock_waste.quantity > 0'
+        'sw.quantity > 0'
     );
 }
 
@@ -59,7 +67,6 @@ if (isset($_GET['api'])) {
 
     $waste = fetchWaste($search, $sortColumn, $sortDir, $limit, $page);
     $total = countWaste($search);
-    echo "<script>console.log('Waste data:', );</script>";
 
     json_response([
         'data'        => $waste,
