@@ -120,18 +120,22 @@ function fetch_entities(
     string $extraWhere = 'is_active = TRUE',
     ?string $dateColumn = null,
     ?string $dateFrom = null,
-    ?string $dateTo = null
+    ?string $dateTo = null,
+    ?string $selectColumns = '*'
 ): array {
     global $pdo;
-    validate_table($table);
+    $baseTable = explode(' ', trim($table))[0];
+validate_table($baseTable);
     [$sortColumn, $sortDir] = normalize_sort($sortColumn, $sortDir, $allowedSortColumns);
     $offset = max(0, ($page - 1) * $limit);
 
 
 if (trim($search) === '') {
     $search = '1=1';
-}
-    $sql = "SELECT * FROM {$table} WHERE {$extraWhere} AND {$search}";
+}   if($selectColumns==null){
+    $selectColumns = '*';}
+    $sql = "SELECT {$selectColumns} FROM {$table} ";
+    $sql.= "WHERE {$extraWhere} AND {$search}";
     $params = [];
 
     // Multi-column search
@@ -184,7 +188,8 @@ function count_entities(
     ?string $dateTo = null
 ): int {
     global $pdo;
-    validate_table($table);
+$baseTable = explode(' ', trim($table))[0];
+validate_table($baseTable);
 
    
 if (trim($search) === '') {
