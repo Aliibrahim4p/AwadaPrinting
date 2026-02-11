@@ -199,7 +199,7 @@
     }
 
     function updatePurchase(id) {
-        window.location.href = `updatepurchasedemo.php?id=${id}`;
+        window.location.href = `updatepurchaseform.php?id=${id}`;
     }
 
     async function deletePurchase(id) {
