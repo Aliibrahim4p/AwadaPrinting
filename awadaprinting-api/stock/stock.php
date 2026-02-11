@@ -75,6 +75,7 @@
 
     </div>
     <a href="waste.php">Waste Management </a>
+    <a href="addstockform.php">Stock add</a>
     <table id="stock-table">
         <thead>
             <tr>

@@ -262,7 +262,7 @@
             const data = buildPurchaseData();
             document.getElementById('purchasePreview').textContent = JSON.stringify(data, null, 2);
         }
-
+        
         async function submitPurchase() {
             const data = buildPurchaseData();
 
