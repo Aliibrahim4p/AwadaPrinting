@@ -12,7 +12,7 @@ $data = json_decode(file_get_contents('php://input'), true);
 $name = trim($data['name'] ?? '');
 try{
     $pdo->beginTransaction();
-    $stmt = $pdo->prepare("INSERT INTO third_party_services (name,is_active) VALUES (:name,1) RETURNING id");
+    $stmt = $pdo->prepare("INSERT INTO third_party_services (name,is_active) VALUES (:name,true) RETURNING id");
     $stmt->execute([':name' => $name]);
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     $pdo->commit();
