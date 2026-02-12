@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../utils/helpers.php';
+require_once __DIR__ . '/stock_costs_service.php';
 /**
  * Add waste to the inventory (no quantity filter)
  */
@@ -57,10 +58,8 @@ if ($stockId <= 0 || $quantity <= 0) {
         }   
 
         // add the cost of the last purchased for waste Entry
-        $stmt=$pdo->prepare("SELECT pd.price_per_unit,p.purchase_date FROM purchase_details pd JOIN purchases p ON pd.purchase_id = p.id WHERE pd.stock_id = :stock_id ORDER BY p.purchase_date DESC LIMIT 1");
-        $stmt->execute([':stock_id' => $stockId]);
-        $pricePerUnit = $stmt->fetchColumn();
-
+$costs = getLastCost($stockId); $pricePerUnit = $costs > 0 ? $costs : 0;
+        
         // Insert waste record
         $stmt = $pdo->prepare("INSERT INTO stock_waste (stock_id, quantity, reason, waste_date,cost) VALUES (:stock_id, :quantity, :reason, NOW(),:cost)");
          $stmt->bindValue(':cost', $pricePerUnit * $quantity    );
