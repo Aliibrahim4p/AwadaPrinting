@@ -76,6 +76,7 @@
     </div>
     <a href="waste.php">Waste Management </a>
     <a href="addstockform.php">Stock add</a>
+    <a href="units.php">Units of Measure</a>
     <table id="stock-table">
         <thead>
             <tr>

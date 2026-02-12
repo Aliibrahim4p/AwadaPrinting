@@ -89,7 +89,7 @@
 
     <script>
     const stockApi = '../stock/addstock.php';
-    const unitApi = '../stock/readunitofmeasure.php';
+    const unitApi = '../stock/readunits.php';
 
     // Build stock data from form inputs
     function buildStockData() {

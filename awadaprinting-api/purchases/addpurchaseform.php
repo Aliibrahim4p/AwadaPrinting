@@ -140,7 +140,7 @@
 
     const supplierApi = '../suppliers/readsuppliers.php';
     const stockApi = '../stock/readstock.php';
-    const unitApi = '../stock/readunitofmeasure.php';
+    const unitApi = '../stock/readunits.php';
     const purchaseApi = '../purchases/addpurchase.php';
 
     // Load suppliers

@@ -5,65 +5,66 @@
     <meta charset="UTF-8">
     <title>View Purchase</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-        }
+    body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+    }
 
-        .container {
-            max-width: 800px;
-            margin: auto;
-        }
+    .container {
+        max-width: 800px;
+        margin: auto;
+    }
 
-        .section {
-            margin-bottom: 25px;
-        }
+    .section {
+        margin-bottom: 25px;
+    }
 
-        .row {
-            margin-bottom: 8px;
-        }
 
-        .label {
-            font-weight: bold;
-            width: 180px;
-            display: inline-block;
-        }
+    .row {
+        margin-bottom: 8px;
+    }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
+    .label {
+        font-weight: bold;
+        width: 180px;
+        display: inline-block;
+    }
 
-        th,
-        td {
-            border: 1px solid #ccc;
-            padding: 8px;
-            text-align: left;
-        }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
 
-        th {
-            background: #f8f8f8;
-        }
+    th,
+    td {
+        border: 1px solid #ccc;
+        padding: 8px;
+        text-align: left;
+    }
 
-        .actions {
-            margin-top: 25px;
-        }
+    th {
+        background: #f8f8f8;
+    }
 
-        button {
-            padding: 8px 12px;
-            margin-right: 10px;
-        }
+    .actions {
+        margin-top: 25px;
+    }
 
-        .error {
-            color: red;
-            margin-top: 15px;
-        }
+    button {
+        padding: 8px 12px;
+        margin-right: 10px;
+    }
 
-        .total {
-            text-align: right;
-            font-weight: bold;
-        }
+    .error {
+        color: red;
+        margin-top: 15px;
+    }
+
+    .total {
+        text-align: right;
+        font-weight: bold;
+    }
     </style>
 </head>
 
@@ -100,49 +101,49 @@
     </div>
 
     <script>
-        function getQueryParam(name) {
-            const params = new URLSearchParams(window.location.search);
-            return params.get(name);
+    function getQueryParam(name) {
+        const params = new URLSearchParams(window.location.search);
+        return params.get(name);
+    }
+
+    function goBack() {
+        window.location.href = 'purchases.php';
+    }
+
+    async function loadPurchase() {
+        const id = getQueryParam('id');
+        const info = document.getElementById('purchaseInfo');
+        const error = document.getElementById('error');
+        const editBtn = document.getElementById('editBtn');
+        const table = document.getElementById('itemsTable');
+        const body = document.getElementById('itemsBody');
+        const grandTotal = document.getElementById('grandTotal');
+
+        info.innerHTML = '';
+        error.textContent = '';
+        body.innerHTML = '';
+        grandTotal.textContent = '';
+        table.style.display = 'none';
+
+        if (!id) {
+            error.textContent = 'Missing purchase ID.';
+            return;
         }
 
-        function goBack() {
-            window.location.href = 'purchases.php';
-        }
+        try {
+            const res = await fetch(
+                `/AwadaPrinting/awadaprinting-api/purchases/viewpurchase.php?id=${encodeURIComponent(id)}`);
+            const data = await res.json();
 
-        async function loadPurchase() {
-            const id = getQueryParam('id');
-            const info = document.getElementById('purchaseInfo');
-            const error = document.getElementById('error');
-            const editBtn = document.getElementById('editBtn');
-            const table = document.getElementById('itemsTable');
-            const body = document.getElementById('itemsBody');
-            const grandTotal = document.getElementById('grandTotal');
-
-            info.innerHTML = '';
-            error.textContent = '';
-            body.innerHTML = '';
-            grandTotal.textContent = '';
-            table.style.display = 'none';
-
-            if (!id) {
-                error.textContent = 'Missing purchase ID.';
+            if (!res.ok || data.error) {
+                error.textContent = data.error || 'Failed to load purchase.';
                 return;
             }
 
-            try {
-                const res = await fetch(
-                    `/AwadaPrinting/awadaprinting-api/purchases/viewpurchase.php?id=${encodeURIComponent(id)}`);
-                const data = await res.json();
+            const p = data.purchase;
+            const items = data.items || [];
 
-                if (!res.ok || data.error) {
-                    error.textContent = data.error || 'Failed to load purchase.';
-                    return;
-                }
-
-                const p = data.purchase;
-                const items = data.items || [];
-
-                info.innerHTML = `
+            info.innerHTML = `
             <div class="row"><span class="label">Purchase ID:</span> <span>${p.id}</span></div>
             <div class="row"><span class="label">Purchase Date:</span> <span>${p.purchase_date || ''}</span></div>
             <div class="row"><span class="label">Supplier:</span> <span>${p.supplier_name || ''}</span></div>
@@ -151,12 +152,12 @@
             <div class="row"><span class="label">Notes:</span> <span>${p.notes || ''}</span></div>
         `;
 
-                if (items.length > 0) {
-                    let total = 0;
-                    items.forEach(item => {
-                        const lineTotal = parseFloat(item.line_total || 0);
-                        total += lineTotal;
-                        body.innerHTML += `
+            if (items.length > 0) {
+                let total = 0;
+                items.forEach(item => {
+                    const lineTotal = parseFloat(item.line_total || 0);
+                    total += lineTotal;
+                    body.innerHTML += `
                     <tr>
                         <td>${item.stock_name || ''}</td>
                         <td>${item.quantity || 0}</td>
@@ -165,20 +166,20 @@
                         <td>${lineTotal.toFixed(2)}</td>
                     </tr>
                 `;
-                    });
-                    grandTotal.textContent = total.toFixed(2);
-                    table.style.display = 'table';
-                }
-
-                editBtn.style.display = 'inline-block';
-                editBtn.onclick = () => window.location.href = `updatepurchaseform.php?id=${encodeURIComponent(id)}`;
-            } catch (e) {
-                error.textContent = 'Error connecting to server.';
-                console.error(e);
+                });
+                grandTotal.textContent = total.toFixed(2);
+                table.style.display = 'table';
             }
-        }
 
-        loadPurchase();
+            editBtn.style.display = 'inline-block';
+            editBtn.onclick = () => window.location.href = `updatepurchaseform.php?id=${encodeURIComponent(id)}`;
+        } catch (e) {
+            error.textContent = 'Error connecting to server.';
+            console.error(e);
+        }
+    }
+
+    loadPurchase();
     </script>
 </body>
 
