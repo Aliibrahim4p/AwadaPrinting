@@ -59,6 +59,8 @@
         <a href="suppliers/suppliers.php">Suppliers</a>
         <a href="purchases/purchases.php">Purchases</a>
         <a href="stock/stock.php">Stock</a>
+        <a href="items/items.php">Items</a>
+        <a href="services/services.php">Services Management</a>
         <!-- Add more options later easily -->
     </div>
 </body>
